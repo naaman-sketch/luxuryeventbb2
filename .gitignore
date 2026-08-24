@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+.env
+.env.local
+.DS_Store
+*.log
+
+# Cache de build TypeScript — change à chaque build, ne doit pas être commité
+# (évite les commits "Update tsconfig.tsbuildinfo" qui déclenchent des déploiements inutiles)
+tsconfig.tsbuildinfo
+*.tsbuildinfo
