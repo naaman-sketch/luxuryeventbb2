@@ -395,11 +395,11 @@ function DetailModal({ item, lang, content, price, branding, ctaLabel, selected,
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <motion.div initial={{ y: 40, opacity: 0, scale: 0.98 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 40, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="relative max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/10 bg-ink sm:rounded-3xl">
+      <motion.div initial={{ y: 40, opacity: 0, scale: 0.98 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 40, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-ink sm:rounded-3xl">
         <button type="button" onClick={onClose} aria-label="Fermer" className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:text-white"><X size={16} /></button>
 
-        {/* Média : vidéo prioritaire, sinon carrousel d'images, sinon emoji */}
-        <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-br from-ink-muted to-ink text-7xl">
+        {/* Média : vidéo prioritaire, sinon carrousel d'images, sinon emoji. Hauteur plafonnée pour laisser voir le contenu et le CTA. */}
+        <div className="relative flex aspect-square max-h-[38vh] shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-ink-muted to-ink text-7xl">
           {content?.video ? (
             <VideoPlayer url={content.video} />
           ) : images.length > 0 ? (
@@ -419,7 +419,7 @@ function DetailModal({ item, lang, content, price, branding, ctaLabel, selected,
           )}
         </div>
 
-        <div className="p-6">
+        <div className="flex-1 overflow-y-auto p-6">
           <div className="flex items-center gap-2">
             <span className="text-2xl">{item.emoji}</span>
             <h2 className="text-2xl font-extrabold text-white" style={{ fontFamily: SERIF }}>{le.name}</h2>
@@ -468,8 +468,8 @@ function DetailModal({ item, lang, content, price, branding, ctaLabel, selected,
 
         </div>
 
-        {/* CTA collés en bas du pop-up — toujours visibles */}
-        <div className="sticky bottom-0 z-10 flex gap-2 border-t border-white/10 bg-ink/95 px-6 py-4 backdrop-blur">
+        {/* CTA en pied de pop-up — toujours visibles (hors zone scrollable) */}
+        <div className="z-10 flex shrink-0 gap-2 border-t border-white/10 bg-ink/95 px-6 py-4 backdrop-blur">
           <button type="button" onClick={onToggle} className={`flex items-center justify-center gap-1.5 rounded-full px-4 py-3 text-sm font-bold transition-colors ${selected ? "bg-white/10 text-white" : "border border-gold/40 text-gold hover:bg-gold/10"}`}>
             {selected ? <><Check size={15} /> {t(UI.added, lang)}</> : <><Plus size={15} /> {t(UI.add, lang)}</>}
           </button>
