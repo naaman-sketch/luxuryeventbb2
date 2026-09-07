@@ -552,8 +552,8 @@ function InterestModal({ selected, lang, estimateTotal, onClose }: { selected: s
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[110] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <motion.div initial={{ y: 40, opacity: 0, scale: 0.98 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 40, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md rounded-t-3xl border border-white/10 bg-ink p-6 sm:rounded-3xl">
-        <button type="button" onClick={onClose} aria-label="Fermer" className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 hover:text-white"><X size={16} /></button>
+      <motion.div initial={{ y: 40, opacity: 0, scale: 0.98 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 40, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="relative max-h-[92vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-3xl border border-white/10 bg-ink p-6 [scrollbar-width:thin] sm:rounded-3xl">
+        <button type="button" onClick={onClose} aria-label="Fermer" className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white/80 backdrop-blur hover:text-white"><X size={16} /></button>
         {state === "done" ? (
           <div className="py-6 text-center">
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gold/15 text-gold"><PartyPopper size={28} /></div>
