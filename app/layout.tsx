@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import TrackingScripts from "@/components/TrackingScripts";
-
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://luxuryevent.example").replace(/\/$/, "");
+import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
