@@ -12,11 +12,23 @@ export interface AnimationContent {
   images?: string[]; // URLs d'images
   video?: string; // URL vidéo (mp4 ou embed)
   usps?: string[]; // badges d'arguments (surcharge ceux par défaut)
+  price?: number; // prix « à partir de » (€) — surcharge le prix par défaut
+  hidden?: boolean; // masquée sur le site public
+  order?: number; // ordre d'affichage (plus petit = en premier)
 }
 
 export interface FaqItem {
   q: string;
   a: string;
+}
+
+/** Pixels & outils de tracking (injectés dans le <head> du site public). */
+export interface TrackingConfig {
+  metaPixelId?: string; // Meta / Facebook Pixel — ex. 123456789012345
+  ga4Id?: string; // Google Analytics 4 — ex. G-XXXXXXX
+  googleAdsId?: string; // Google Ads (gtag conversions) — ex. AW-XXXXXXX
+  tiktokPixelId?: string; // TikTok Pixel — ex. Cxxxxxxxxxxxxxxx
+  gtmId?: string; // Google Tag Manager (pour tout le reste) — ex. GTM-XXXXXX
 }
 
 export interface SiteContent {
@@ -30,6 +42,7 @@ export interface SiteContent {
   gains: string[]; // « Ce que votre magasin y gagne » (affiché dans chaque popup)
   faq: FaqItem[]; // questions/réponses B2B
   storyVideo: Record<string, string>; // vidéo « story » par langue { fr, nl, en }
+  tracking: TrackingConfig; // pixels & analytics
   animations: Record<string, AnimationContent>;
 }
 
@@ -69,7 +82,28 @@ export function defaultContent(): SiteContent {
     gains: [...GAINS_DEFAULT],
     faq: FAQ_DEFAULT.map((f) => ({ ...f })),
     storyVideo: {},
+    tracking: {},
     animations: {},
+  };
+}
+
+/** Nettoie un identifiant de pixel/tag (caractères sûrs uniquement). */
+function cleanId(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const s = v.trim().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40);
+  return s || undefined;
+}
+
+/** Parse la config de tracking (identifiants seulement, jamais de HTML brut). */
+export function parseTracking(v: unknown): TrackingConfig {
+  if (!v || typeof v !== "object") return {};
+  const x = v as Record<string, unknown>;
+  return {
+    metaPixelId: cleanId(x.metaPixelId),
+    ga4Id: cleanId(x.ga4Id),
+    googleAdsId: cleanId(x.googleAdsId),
+    tiktokPixelId: cleanId(x.tiktokPixelId),
+    gtmId: cleanId(x.gtmId),
   };
 }
 
@@ -96,6 +130,9 @@ export function parseContent(raw: string | null | undefined): SiteContent {
           images: Array.isArray(x.images) ? x.images.map(String).filter(Boolean) : undefined,
           video: typeof x.video === "string" && x.video.trim() ? x.video.trim() : undefined,
           usps: Array.isArray(x.usps) ? x.usps.map(String).map((s) => s.trim()).filter(Boolean) : undefined,
+          price: typeof x.price === "number" && x.price >= 0 ? x.price : undefined,
+          hidden: x.hidden === true ? true : undefined,
+          order: typeof x.order === "number" && Number.isFinite(x.order) ? x.order : undefined,
         };
       }
     }
@@ -121,6 +158,7 @@ export function parseContent(raw: string | null | undefined): SiteContent {
       gains: gains.length ? gains : base.gains,
       faq: faq.length ? faq : base.faq,
       storyVideo,
+      tracking: parseTracking(o.tracking),
       animations,
     };
   } catch {

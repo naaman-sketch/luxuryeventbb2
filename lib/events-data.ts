@@ -14,7 +14,76 @@ export interface EventItem {
   target: Target[];
   impact: string; // bénéfice mis en avant
   usps: string[]; // arguments clés (badges)
+  options?: string[]; // choix affichés dans la pop-up (ex. Food Truck)
 }
+
+/** Grandes familles pour le filtre (au lieu de la cible enfants/adultes). */
+export type Family = "concept" | "physique" | "food";
+export const FAMILIES: Family[] = ["concept", "physique", "food"];
+
+export const EVENT_FAMILY: Record<string, Family> = {
+  "jeu-concours": "concept", "boule-balle": "concept", "roue-xxl": "concept", "cash-machine": "concept",
+  "grappin": "concept", "photobooth-360": "concept", "magazine-box": "concept", "mascotte": "concept",
+  "chateau-marque": "physique", "football-bulle": "physique", "trampoline": "physique",
+  "tenir-barre": "physique", "buzzer-10s": "physique", "mur-reflexes": "physique", "attrape-baton": "physique",
+  "popcorn": "food", "barbe-papa": "food", "mocktails": "food", "bonbons": "food", "crepes": "food",
+  "cafe": "food", "tiramisu": "food", "sales": "food", "frites": "food", "hotdog": "food", "nachos": "food", "food-truck": "food",
+};
+
+/** Prix indicatif « à partir de » (€) par animation, pour l'estimation. */
+export const EVENT_PRICE: Record<string, number> = {
+  // Concept
+  "jeu-concours": 900, "boule-balle": 3500, "roue-xxl": 2200, "cash-machine": 2200,
+  "grappin": 1500, "photobooth-360": 1800, "magazine-box": 1200, "mascotte": 700,
+  // Physique
+  "chateau-marque": 1200, "football-bulle": 2200, "trampoline": 1500,
+  "tenir-barre": 900, "buzzer-10s": 900, "mur-reflexes": 1200, "attrape-baton": 900,
+  // Food (stands simples = plus abordables)
+  "popcorn": 450, "barbe-papa": 450, "mocktails": 750, "bonbons": 450, "crepes": 600,
+  "cafe": 600, "tiramisu": 700, "sales": 650, "frites": 600, "hotdog": 600, "nachos": 550,
+  "food-truck": 2200,
+};
+
+/** Formate un montant en euros (ex. 3500 → « 3 500 € »). */
+export function formatEUR(n: number): string {
+  return `${Math.round(n).toLocaleString("fr-FR")} €`;
+}
+
+/** Estimation « à partir de » pour une sélection d'ids. */
+export function estimateFrom(ids: string[]): number {
+  return ids.reduce((s, id) => s + (EVENT_PRICE[id] ?? 0), 0);
+}
+
+/** Image par défaut d'une animation (dossier /public/Stand). Encodée au rendu. */
+export const EVENT_IMAGE: Record<string, string> = {
+  "jeu-concours": "/Stand/Stand Quizz.png",
+  "boule-balle": "/Stand/Stand Bubble House piscine à balle.png",
+  "roue-xxl": "/Stand/Stand Rue de la fortune.png",
+  "cash-machine": "/Stand/Stand Cash Box Inflate.png",
+  "grappin": "/Stand/Stand Machine à grappin.png",
+  "photobooth-360": "/Stand/Photobooth 360.png",
+  "magazine-box": "/Stand/Stand Magazine Box.png",
+  "mascotte": "/Stand/Animation Mascotte.png",
+  "chateau-marque": "/Stand/Stand Chateau Gonflable.png",
+  "football-bulle": "/Stand/Jeux Football Bulle.png",
+  "trampoline": "/Stand/Stand Trampoiline.png",
+  "tenir-barre": "/Stand/Stand jeux du poids.png",
+  "buzzer-10s": "/Stand/Stand jeux du buzzer.png",
+  "mur-reflexes": "/Stand/Stand jeux lumiere.png",
+  "attrape-baton": "/Stand/Stand Attrape le baton.png",
+  "popcorn": "/Stand/Stand pop-corn.png",
+  "barbe-papa": "/Stand/Stand Barbe à papa.png",
+  "mocktails": "/Stand/Stand de mocktail.png",
+  "bonbons": "/Stand/Stand de bonbons.png",
+  "crepes": "/Stand/Stande de crêpe.png",
+  "cafe": "/Stand/Stand Café.png",
+  "tiramisu": "/Stand/Tiramisu Geant.png",
+  "sales": "/Stand/Stand Buffet.png",
+  "frites": "/Stand/Stand de frites.png",
+  "hotdog": "/Stand/Stand Hot-dog.png",
+  "nachos": "/Stand/Stand de Nachos.png",
+  "food-truck": "/Stand/FoodTruck.png",
+};
 
 export interface EventCategory {
   id: string;
@@ -47,6 +116,7 @@ export const CATEGORIES: EventCategory[] = [
       { id: "mascotte", name: "Mascotte", emoji: "🧸", target: ["enfants", "tous"], desc: "Mascotte costumée qui accueille, anime et distribue.", impact: "Ambiance chaleureuse, mémorable pour les enfants", usps: ["Accueil chaleureux", "Adorée des enfants", "Mémorable", "Sur-mesure"] },
       { id: "chateau-marque", name: "Château gonflable brandé", emoji: "🏰", target: ["enfants"], desc: "Structure gonflable aux couleurs de la marque, sécurisée.", impact: "Attire les familles, allonge le temps de visite", usps: ["Attire les familles", "Visibilité XXL", "Temps de visite ↑", "100% brandé"] },
       { id: "football-bulle", name: "Football bulle", emoji: "⚽", target: ["tous"], desc: "Match de football dans des bulles géantes gonflables : fun, spectaculaire et sans risque.", impact: "Attroupement garanti + contenu viral", usps: ["Spectaculaire", "Fun garanti", "Contenu viral", "100% brandé"] },
+      { id: "trampoline", name: "Trampoline", emoji: "🤸", target: ["enfants", "tous"], desc: "Structure de saut / trampoline brandée, sécurisée : sensations et fun garantis.", impact: "Attire les familles, allonge le temps de visite", usps: ["Attire les familles", "Fun garanti", "Temps de visite ↑", "100% brandé"] },
     ],
   },
   {
@@ -58,6 +128,7 @@ export const CATEGORIES: EventCategory[] = [
       { id: "tenir-barre", name: "Tenir la barre avec un poids", emoji: "💪", target: ["adultes", "tous"], desc: "Qui tient la barre le plus longtemps ? Classement du jour, lots à gagner.", impact: "Attroupement compétitif + retours quotidiens", usps: ["Compétitif", "Retours quotidiens", "Attroupement", "Fun"] },
       { id: "buzzer-10s", name: "Buzzer en 10 secondes", emoji: "⏱️", target: ["tous"], desc: "Réflexe & rapidité : buzz au bon moment pour gagner.", impact: "Animation rapide, fort débit de participants", usps: ["Rapide", "Fort débit", "Fun", "Tous publics"] },
       { id: "mur-reflexes", name: "Mur des réflexes", emoji: "💡", target: ["tous"], desc: "Mur géant de boutons lumineux : tape un maximum de lumières qui s'allument, chrono & classement du jour.", impact: "Compétitif et addictif, fort débit de participants", usps: ["Réflexes", "Compétitif", "Fort débit", "100% brandé"] },
+      { id: "attrape-baton", name: "Attrape le bâton", emoji: "✋", target: ["tous"], desc: "Réflexe pur : attrape le bâton qui tombe avant qu'il ne touche le sol. Chrono & classement du jour.", impact: "Défi rapide et addictif, fort débit", usps: ["Réflexes", "Rapide", "Compétitif", "Fun"] },
     ],
   },
   {
@@ -72,6 +143,7 @@ export const CATEGORIES: EventCategory[] = [
       { id: "bonbons", name: "Stand Bonbons", emoji: "🍬", target: ["enfants", "tous"], desc: "Bar à bonbons en libre-service, sachets brandés.", impact: "Plaisir immédiat, forte circulation", usps: ["Plaisir immédiat", "Forte circulation", "Familles", "Sachets brandés"] },
       { id: "crepes", name: "Stand à Crêpes", emoji: "🥞", target: ["tous"], desc: "Crêpes chaudes préparées minute.", impact: "Convivialité, temps de présence prolongé", usps: ["Convivial", "Temps de présence ↑", "Gourmand", "Préparé minute"] },
       { id: "cafe", name: "Stand Café", emoji: "☕", target: ["adultes", "tous"], desc: "Bar à café (expresso, cappuccino, latte…) préparé minute, gobelet brandé.", impact: "Pause premium, image chaleureuse", usps: ["Pause premium", "Image chaleureuse", "Gobelet brandé", "Adultes"] },
+      { id: "tiramisu", name: "Tiramisu Géant", emoji: "🍮", target: ["adultes", "tous"], desc: "Tiramisu géant distribué en pots individuels aux couleurs de votre marque.", impact: "Gourmandise premium + pots brandés qui circulent", usps: ["Premium", "Pots brandés", "Gourmand", "Photogénique"] },
     ],
   },
   {
@@ -84,6 +156,24 @@ export const CATEGORIES: EventCategory[] = [
       { id: "frites", name: "Stand Frites", emoji: "🍟", target: ["tous"], desc: "Frites fraîches, cornet brandé.", impact: "Valeur sûre, forte affluence", usps: ["Valeur sûre", "Forte affluence", "Rapide", "Cornet brandé"] },
       { id: "hotdog", name: "Stand Hot-dog", emoji: "🌭", target: ["adultes", "tous"], desc: "Hot-dogs préparés minute.", impact: "Débit rapide, satisfaction immédiate", usps: ["Débit rapide", "Satisfaction", "Convivial", "Préparé minute"] },
       { id: "nachos", name: "Stand Nachos", emoji: "🧀", target: ["tous"], desc: "Nachos & sauces à partager.", impact: "Convivialité, moment de partage", usps: ["À partager", "Convivial", "Fun", "Gourmand"] },
+    ],
+  },
+  {
+    id: "foodtruck",
+    title: "Food Truck",
+    subtitle: "Un camion food truck aux couleurs de votre marque, avec le type de cuisine de votre choix.",
+    emoji: "🚚",
+    items: [
+      {
+        id: "food-truck",
+        name: "Food Truck",
+        emoji: "🚚",
+        target: ["tous"],
+        desc: "Un food truck brandé installé devant votre enseigne, avec la cuisine de votre choix — préparée minute.",
+        impact: "Expérience complète : attire, régale et fait rester en magasin",
+        usps: ["100% brandé", "Cuisine au choix", "Forte affluence", "Expérience premium"],
+        options: ["Asiatique", "Burger", "Hot-dog", "Pasta", "Tacos", "Bagels", "Frites", "Végétarien"],
+      },
     ],
   },
 ];

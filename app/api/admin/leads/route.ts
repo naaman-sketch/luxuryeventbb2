@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { checkAdminRequest } from "@/lib/admin-auth";
-import { listLeads, countVisits, updateLead, LEAD_STATUSES, type LeadStatus } from "@/lib/leads";
+import { listLeads, countEvents, updateLead, LEAD_STATUSES, type LeadStatus } from "@/lib/leads";
 
 /**
- * Leads B2B + stats (admin).
- * GET ?from=ISO&to=ISO → { leads, leadCount, visitCount, rate }
+ * Leads B2B + stats du tunnel (admin).
+ * GET ?from=ISO&to=ISO → { leads, leadCount, visitCount, interestCount, rate, interestRate, formRate }
  */
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -15,10 +15,22 @@ export async function GET(req: Request) {
   const fromISO = url.searchParams.get("from") || undefined;
   const toISO = url.searchParams.get("to") || undefined;
   try {
-    const [leads, visitCount] = await Promise.all([listLeads({ fromISO, toISO }), countVisits({ fromISO, toISO })]);
+    const [leads, visitCount, interestCount] = await Promise.all([
+      listLeads({ fromISO, toISO }),
+      countEvents("visit", { fromISO, toISO }),
+      countEvents("interest", { fromISO, toISO }),
+    ]);
     const leadCount = leads.length;
-    const rate = visitCount ? Math.round((leadCount / visitCount) * 1000) / 10 : 0;
-    return NextResponse.json({ leads, leadCount, visitCount, rate });
+    const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
+    return NextResponse.json({
+      leads,
+      leadCount,
+      visitCount,
+      interestCount,
+      rate: pct(leadCount, visitCount), // conversion globale visiteur → lead
+      interestRate: pct(interestCount, visitCount), // visiteur → ouverture formulaire
+      formRate: pct(leadCount, interestCount), // ouverture → formulaire envoyé
+    });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Erreur." }, { status: 500 });
   }

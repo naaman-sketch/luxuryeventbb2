@@ -39,11 +39,11 @@ export const UI: Record<string, T3> = {
   heroSub: { fr: "LuxuryEvent conçoit des animations promotionnelles sur-mesure pour les grandes enseignes. Composez votre événement idéal ci-dessous — on vous montre l'impact, puis on en discute.", nl: "LuxuryEvent ontwerpt promotionele animaties op maat voor grote retailketens. Stel hieronder uw ideale evenement samen — we tonen de impact en bespreken het samen.", en: "LuxuryEvent designs tailor-made promotional activations for major retail brands. Build your ideal event below — we show you the impact, then we talk." },
   statLine: { fr: "Plus de 129 événements réalisés en Belgique", nl: "Meer dan 129 evenementen gerealiseerd in België", en: "Over 129 events delivered across Belgium" },
   trustTitle: { fr: "Ils nous font confiance", nl: "Zij vertrouwen ons", en: "They trust us" },
-  targetLabel: { fr: "Cible", nl: "Doelgroep", en: "Target" },
-  targetAll: { fr: "Tout", nl: "Alles", en: "All" },
-  targetTous: { fr: "Tous publics", nl: "Alle publiek", en: "All audiences" },
-  targetEnfants: { fr: "Enfants", nl: "Kinderen", en: "Kids" },
-  targetAdultes: { fr: "Adultes", nl: "Volwassenen", en: "Adults" },
+  familyLabel: { fr: "Type", nl: "Type", en: "Type" },
+  famAll: { fr: "Tout", nl: "Alles", en: "All" },
+  famConcept: { fr: "Concept", nl: "Concept", en: "Concept" },
+  famPhysique: { fr: "Physique", nl: "Fysiek", en: "Physical" },
+  famFood: { fr: "Food", nl: "Food", en: "Food" },
   // Impact stats
   impTrafic: { fr: "Trafic", nl: "Verkeer", en: "Footfall" },
   impTraficD: { fr: "Plus de visiteurs en magasin", nl: "Meer bezoekers in de winkel", en: "More in-store visitors" },
@@ -108,6 +108,26 @@ export const UI: Record<string, T3> = {
   cat_dessert_s: { fr: "L'odeur et la gourmandise qui font entrer — et rester — les visiteurs.", nl: "De geur en het lekkers die bezoekers binnenbrengen — en houden.", en: "The aroma and treats that bring visitors in — and keep them." },
   cat_food_t: { fr: "Stands Food", nl: "Foodstanden", en: "Food stands" },
   cat_food_s: { fr: "Le salé qui transforme une visite en moment, et un moment en achat.", nl: "Het hartige dat een bezoek in een moment verandert, en een moment in een aankoop.", en: "The savory that turns a visit into a moment, and a moment into a sale." },
+  cat_foodtruck_t: { fr: "Food Truck", nl: "Food Truck", en: "Food Truck" },
+  cat_foodtruck_s: { fr: "Un camion food truck aux couleurs de votre marque, avec le type de cuisine de votre choix.", nl: "Een food truck in uw merkkleuren, met het keukentype van uw keuze.", en: "A food truck in your brand colors, with the cuisine type of your choice." },
+  optionsTitle: { fr: "Au choix", nl: "Naar keuze", en: "Your choice" },
+  priceFrom: { fr: "À partir de", nl: "Vanaf", en: "From" },
+  estimateLabel: { fr: "Estimation à partir de", nl: "Schatting vanaf", en: "Estimate from" },
+  priceNote: { fr: "Estimation indicative, hors sur-mesure. Devis précis après échange.", nl: "Indicatieve schatting, maatwerk niet inbegrepen. Exacte offerte na overleg.", en: "Indicative estimate, custom work excluded. Exact quote after a chat." },
+  // Comment ça marche
+  howTitle: { fr: "Comment ça marche", nl: "Hoe het werkt", en: "How it works" },
+  how1t: { fr: "Vous composez", nl: "U stelt samen", en: "You build it" },
+  how1d: { fr: "Sélectionnez en ligne les animations idéales pour votre enseigne.", nl: "Selecteer online de ideale animaties voor uw winkel.", en: "Select online the ideal activations for your store." },
+  how2t: { fr: "On vous rappelle", nl: "Wij bellen u", en: "We call you back" },
+  how2d: { fr: "Notre équipe vous contacte, affine votre projet et vous envoie un devis.", nl: "Ons team neemt contact op, verfijnt uw project en stuurt een offerte.", en: "Our team contacts you, refines the project and sends a quote." },
+  how3t: { fr: "On installe clé en main", nl: "Wij installeren alles", en: "We install turnkey" },
+  how3d: { fr: "On gère toute la logistique le jour J : montage, animation, démontage.", nl: "Wij regelen alle logistiek op de dag zelf: opbouw, animatie, afbraak.", en: "We handle all logistics on the day: setup, hosting, teardown." },
+  // Mentions rassurantes
+  reassTitle: { fr: "Sérénité totale", nl: "Volledige gemoedsrust", en: "Complete peace of mind" },
+  reass1: { fr: "Assurance RC incluse", nl: "BA-verzekering inbegrepen", en: "Liability insurance included" },
+  reass2: { fr: "Sécurité & normes respectées", nl: "Veiligheid & normen gerespecteerd", en: "Safety & standards met" },
+  reass3: { fr: "Personnel encadrant fourni", nl: "Begeleidend personeel voorzien", en: "Trained staff provided" },
+  reass4: { fr: "Montage & démontage inclus", nl: "Op- en afbouw inbegrepen", en: "Setup & teardown included" },
 };
 
 /** FAQ B2B traduite (utilisée en NL/EN ; le FR éditable vient du dashboard). */

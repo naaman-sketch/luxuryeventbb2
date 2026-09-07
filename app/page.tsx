@@ -2,14 +2,31 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Sparkles, ArrowRight, X, Loader2, PartyPopper, Store, TrendingUp, Users, Info, Palette, Megaphone, ChevronLeft, ChevronRight, Plus, Home as HomeIcon, Phone, MessageCircle, Play } from "lucide-react";
-import { CATEGORIES, IMPACT_STATS, findEvent, type Target, type EventItem } from "@/lib/events-data";
+import { Check, Sparkles, ArrowRight, X, Loader2, PartyPopper, Store, TrendingUp, Users, Info, Palette, Megaphone, ChevronLeft, ChevronRight, Plus, Home as HomeIcon, Phone, MessageCircle, Play, ShieldCheck, Wrench, UserCheck, Truck } from "lucide-react";
+import { CATEGORIES, IMPACT_STATS, EVENT_IMAGE, EVENT_FAMILY, EVENT_PRICE, FAMILIES, formatEUR, findEvent, type Family, type EventItem } from "@/lib/events-data";
 import { defaultContent, type SiteContent, type AnimationContent } from "@/lib/content";
 import { UI, FAQ_I18N, CONTACT, LANGS, LANG_LABELS, detectLang, t, type Lang } from "@/lib/i18n";
-import { localizedEvent } from "@/lib/events-i18n";
+import { localizedEvent, eventGains } from "@/lib/events-i18n";
 
 const SERIF = "var(--font-serif), Georgia, serif";
 const BUDGETS = ["À définir", "Moins de 1 000 €", "1 000 – 3 000 €", "3 000 – 5 000 €", "5 000 – 10 000 €", "Plus de 10 000 €"];
+
+/** Envoie un événement de conversion aux pixels publicitaires (s'ils sont chargés). */
+function firePixel(stage: "interest" | "lead") {
+  if (typeof window === "undefined") return;
+  const w = window as unknown as { fbq?: (...a: unknown[]) => void; gtag?: (...a: unknown[]) => void; ttq?: { track: (...a: unknown[]) => void } };
+  try {
+    if (stage === "interest") {
+      w.fbq?.("track", "InitiateCheckout");
+      w.gtag?.("event", "begin_checkout");
+      w.ttq?.track("ClickButton");
+    } else {
+      w.fbq?.("track", "Lead");
+      w.gtag?.("event", "generate_lead");
+      w.ttq?.track("SubmitForm");
+    }
+  } catch { /* pixels absents : sans effet */ }
+}
 
 // Libellés impact par index (mêmes que IMPACT_STATS) — traduits.
 const IMPACT_KEYS = [
@@ -22,26 +39,58 @@ const IMPACT_KEYS = [
 export default function Home() {
   const [content, setContent] = useState<SiteContent>(defaultContent());
   const [lang, setLang] = useState<Lang>("fr");
-  const [target, setTarget] = useState<Target | "all">("all");
+  const [fam, setFam] = useState<Family | "all">("all");
   const [selected, setSelected] = useState<string[]>([]);
   const [detail, setDetail] = useState<EventItem | null>(null);
   const [interest, setInterest] = useState(false);
   const [story, setStory] = useState(false);
+  const [exitPrompt, setExitPrompt] = useState(false);
+  const canExitRef = useRef(false);
 
   const fr = lang === "fr";
   const tr = (k: string) => t(UI[k], lang);
   const storyUrl = content.storyVideo[lang] || content.storyVideo.fr || content.storyVideo.nl || content.storyVideo.en || "";
+  const priceOf = (id: string) => content.animations[id]?.price ?? (EVENT_PRICE[id] ?? 0);
+  const estimateTotal = selected.reduce((s, id) => s + priceOf(id), 0);
 
   useEffect(() => {
     setLang(detectLang());
     fetch("/api/content").then((r) => r.json()).then((d) => { if (d.content) setContent(d.content); }).catch(() => {});
-    // Tracking visiteur (1×/session).
+    // Tracking visiteur (1×/session) avec provenance (UTM / referrer).
     try {
       if (!sessionStorage.getItem("lx_visit")) {
         sessionStorage.setItem("lx_visit", "1");
-        fetch("/api/track", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: window.location.pathname, referrer: document.referrer || "direct" }), keepalive: true }).catch(() => {});
+        const qs = new URLSearchParams(window.location.search);
+        const src = qs.get("utm_source") || qs.get("ref") || qs.get("source") || "";
+        fetch("/api/track", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: window.location.pathname, referrer: document.referrer || "direct", src }), keepalive: true }).catch(() => {});
       }
     } catch { /* mode privé : on ignore */ }
+  }, []);
+
+  // Le pop-up de relance ne peut apparaître que si des animations sont choisies
+  // et que le formulaire n'est pas déjà ouvert.
+  useEffect(() => { canExitRef.current = selected.length > 0 && !interest; }, [selected, interest]);
+
+  // Exit-intent : « Gardez votre sélection, on vous rappelle » (1×/session).
+  useEffect(() => {
+    const trigger = () => {
+      if (!canExitRef.current) return;
+      try {
+        if (sessionStorage.getItem("lx_exit")) return;
+        sessionStorage.setItem("lx_exit", "1");
+      } catch { /* mode privé */ }
+      setExitPrompt(true);
+    };
+    // Desktop : la souris quitte la page par le haut.
+    const onMouseOut = (e: MouseEvent) => { if (!e.relatedTarget && e.clientY <= 0) trigger(); };
+    // Mobile / desktop : l'onglet passe en arrière-plan (le rappel s'affiche au retour).
+    const onVisibility = () => { if (document.visibilityState === "hidden") trigger(); };
+    document.addEventListener("mouseout", onMouseOut);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("mouseout", onMouseOut);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   const toggle = (id: string) => setSelected((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
@@ -49,15 +98,30 @@ export default function Home() {
     if (id && !selected.includes(id)) setSelected((p) => [...p, id]);
     setDetail(null);
     setInterest(true);
+    // Analytics interne : 1 « intéressé » unique par session.
+    try {
+      if (!sessionStorage.getItem("lx_interest")) {
+        sessionStorage.setItem("lx_interest", "1");
+        fetch("/api/track", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "interest", path: window.location.pathname }), keepalive: true }).catch(() => {});
+      }
+    } catch { /* mode privé : on ignore */ }
+    // Pixels publicitaires (si configurés) : intention d'achat.
+    firePixel("interest");
   };
 
   const filtered = useMemo(
     () =>
       CATEGORIES.map((c) => ({
         ...c,
-        items: c.items.filter((it) => target === "all" || it.target.includes(target) || it.target.includes("tous")),
+        items: c.items
+          .map((it, i) => ({ it, i }))
+          // Masque les animations désactivées dans le dashboard + filtre par famille.
+          .filter(({ it }) => !content.animations[it.id]?.hidden && (fam === "all" || EVENT_FAMILY[it.id] === fam))
+          // Trie par ordre défini au dashboard (défaut = ordre du catalogue).
+          .sort((a, b) => (content.animations[a.it.id]?.order ?? a.i) - (content.animations[b.it.id]?.order ?? b.i))
+          .map(({ it }) => it),
       })).filter((c) => c.items.length > 0),
-    [target],
+    [fam, content],
   );
 
   return (
@@ -65,22 +129,24 @@ export default function Home() {
       <div className="halo left-1/2 top-[-6rem] h-96 w-96 -translate-x-1/2 bg-gold" />
       <div className="halo right-[-6rem] top-1/3 h-80 w-80 bg-gold-deep" />
 
-      <header className="relative mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-5">
-        <a href={CONTACT.home} className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold/15 text-gold"><Sparkles size={18} /></span>
-          <span className="text-lg font-extrabold tracking-tight">Luxury<span className="text-gold">Event</span></span>
+      <header className="relative mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-4 sm:px-5 sm:py-5">
+        <a href={CONTACT.home} className="flex shrink-0 items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gold/15 text-gold sm:h-9 sm:w-9"><Sparkles size={17} /></span>
+          <span className="text-base font-extrabold tracking-tight sm:text-lg">Luxury<span className="text-gold">Event</span></span>
         </a>
-        <nav className="flex items-center gap-2">
+        <nav className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           {/* Sélecteur de langue */}
-          <div className="mr-1 flex overflow-hidden rounded-full border border-white/15">
+          <div className="flex overflow-hidden rounded-full border border-white/15">
             {LANGS.map((l) => (
-              <button key={l} type="button" onClick={() => setLang(l)} className={`px-2.5 py-1 text-xs font-bold transition-colors ${lang === l ? "bg-gold text-ink" : "text-white/60 hover:text-white"}`}>{LANG_LABELS[l]}</button>
+              <button key={l} type="button" onClick={() => setLang(l)} className={`px-2 py-1 text-[11px] font-bold transition-colors sm:text-xs ${lang === l ? "bg-gold text-ink" : "text-white/60 hover:text-white"}`}>{LANG_LABELS[l]}</button>
             ))}
           </div>
           <a href={CONTACT.home} className="hidden items-center gap-1.5 rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-white/80 hover:border-gold/40 sm:inline-flex"><HomeIcon size={15} /> {tr("navHome")}</a>
-          <a href={`tel:${CONTACT.phoneTel}`} className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 px-3 py-2 text-sm font-semibold text-gold hover:bg-gold/10"><Phone size={15} /> <span className="hidden sm:inline">{CONTACT.phoneDisplay}</span></a>
-          {/* WhatsApp — mobile uniquement */}
-          <a href={`https://wa.me/${CONTACT.whatsapp}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-2 text-sm font-bold text-black sm:hidden"><MessageCircle size={15} /> WhatsApp</a>
+          {/* Téléphone : numéro sur desktop, icône ronde sur mobile */}
+          <a href={`tel:${CONTACT.phoneTel}`} className="hidden items-center gap-1.5 rounded-full border border-gold/40 px-3 py-2 text-sm font-semibold text-gold hover:bg-gold/10 sm:inline-flex"><Phone size={15} /> {CONTACT.phoneDisplay}</a>
+          <a href={`tel:${CONTACT.phoneTel}`} aria-label="Appeler" className="flex h-9 w-9 items-center justify-center rounded-full border border-gold/40 text-gold sm:hidden"><Phone size={16} /></a>
+          {/* WhatsApp — mobile uniquement, icône ronde */}
+          <a href={`https://wa.me/${CONTACT.whatsapp}`} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-black sm:hidden"><MessageCircle size={17} /></a>
         </nav>
       </header>
 
@@ -109,6 +175,14 @@ export default function Home() {
             </motion.div>
           ))}
         </div>
+
+        {/* Mentions rassurantes */}
+        <div className="mx-auto mt-6 flex max-w-3xl flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[13px] text-white/60">
+          {[[ShieldCheck, "reass1"], [Check, "reass2"], [UserCheck, "reass3"], [Wrench, "reass4"]].map(([Icon, key], i) => {
+            const I = Icon as typeof ShieldCheck;
+            return <span key={i} className="inline-flex items-center gap-1.5"><I size={15} className="text-gold" /> {tr(key as string)}</span>;
+          })}
+        </div>
       </section>
 
       {/* Ils nous font confiance — bandeau défilant */}
@@ -131,9 +205,9 @@ export default function Home() {
       {/* Cible */}
       <section className="relative mx-auto mt-14 max-w-6xl px-5">
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <span className="mr-1 flex items-center gap-1.5 text-sm text-white/50"><Users size={15} /> {tr("targetLabel")} :</span>
-          {([["all", tr("targetAll")], ["tous", tr("targetTous")], ["enfants", tr("targetEnfants")], ["adultes", tr("targetAdultes")]] as [Target | "all", string][]).map(([id, label]) => (
-            <button key={id} type="button" onClick={() => setTarget(id)} className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors ${target === id ? "border-gold bg-gold/15 text-gold" : "border-white/10 text-white/60 hover:border-gold/40"}`}>
+          <span className="mr-1 flex items-center gap-1.5 text-sm text-white/50"><Users size={15} /> {tr("familyLabel")} :</span>
+          {([["all", tr("famAll")], ["concept", tr("famConcept")], ["physique", tr("famPhysique")], ["food", tr("famFood")]] as [Family | "all", string][]).map(([id, label]) => (
+            <button key={id} type="button" onClick={() => setFam(id)} className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors ${fam === id ? "border-gold bg-gold/15 text-gold" : "border-white/10 text-white/60 hover:border-gold/40"}`}>
               {label}
             </button>
           ))}
@@ -155,11 +229,11 @@ export default function Home() {
               {cat.items.map((it) => {
                 const on = selected.includes(it.id);
                 const co = content.animations[it.id];
-                const cover = co?.images?.[0];
+                const cover = co?.images?.[0] || (EVENT_IMAGE[it.id] ? encodeURI(EVENT_IMAGE[it.id]) : "");
                 const le = localizedEvent(it, lang);
                 return (
                   <motion.div key={it.id} whileHover={{ y: -4 }} className={`group relative flex flex-col overflow-hidden rounded-2xl border transition-colors ${on ? "border-gold bg-gold/10 shadow-glow" : "border-white/10 bg-ink-soft hover:border-gold/40"}`}>
-                    <button type="button" onClick={() => setDetail(it)} className="relative flex h-40 items-center justify-center overflow-hidden bg-gradient-to-br from-ink-muted to-ink text-6xl">
+                    <button type="button" onClick={() => setDetail(it)} className="relative flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-br from-ink-muted to-ink text-6xl">
                       {cover ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={cover} alt={le.name} className="h-full w-full object-cover" />
@@ -187,6 +261,20 @@ export default function Home() {
           </section>
         ))}
       </div>
+
+      {/* Comment ça marche */}
+      <section className="relative mx-auto mt-16 max-w-4xl px-5">
+        <h2 className="text-center text-2xl font-extrabold" style={{ fontFamily: SERIF }}>{tr("howTitle")}</h2>
+        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="relative rounded-2xl border border-white/10 bg-ink-soft p-5 text-center">
+              <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-gold/15 text-lg font-extrabold text-gold">{n}</span>
+              <p className="mt-3 font-bold text-white">{tr(`how${n}t`)}</p>
+              <p className="mt-1 text-sm text-white/55">{tr(`how${n}d`)}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* FAQ B2B */}
       {(() => {
@@ -218,14 +306,15 @@ export default function Home() {
 
       {/* Barre flottante */}
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40">
-        <div className="h-10 bg-gradient-to-t from-ink to-transparent" />
-        <div className="px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
           <div className="pointer-events-auto mx-auto flex max-w-2xl items-center justify-between gap-3 rounded-[26px] border border-gold/25 bg-ink-soft/90 px-4 py-3 shadow-card backdrop-blur-xl">
             <div className="min-w-0">
-              <p className="text-sm font-bold text-white">{selected.length > 0 ? `${selected.length} ${selected.length > 1 ? tr("selectedMany") : tr("selectedOne")}` : tr("composeTitle")}</p>
+              <p className="text-sm font-bold text-white">
+                {selected.length > 0 ? `${selected.length} ${selected.length > 1 ? tr("selectedMany") : tr("selectedOne")}` : tr("composeTitle")}
+              </p>
               <p className="truncate text-xs text-white/45">{selected.length > 0 ? selected.map((id) => { const it = findEvent(id); return it ? localizedEvent(it, lang).name : null; }).filter(Boolean).join(" · ") : tr("composeSub")}</p>
             </div>
-            <button type="button" onClick={() => setInterest(true)} className="btn-primary flex shrink-0 items-center gap-2 px-5 py-3 text-sm">
+            <button type="button" onClick={() => openInterestWith()} className="btn-primary flex shrink-0 items-center gap-2 px-5 py-3 text-sm">
               {fr ? content.ctaInterest : t(UI.interestTitle, lang)} <ArrowRight size={16} />
             </button>
           </div>
@@ -244,8 +333,18 @@ export default function Home() {
 
       <AnimatePresence>
         {story && storyUrl && <StoryPlayer url={storyUrl} onClose={() => setStory(false)} />}
-        {detail && <DetailModal item={detail} lang={lang} content={content.animations[detail.id]} branding={fr ? content.branding : t(UI.branding, lang)} gains={fr ? content.gains : [t(UI.gain1, lang), t(UI.gain2, lang), t(UI.gain3, lang), t(UI.gain4, lang), t(UI.gain5, lang)]} ctaLabel={fr ? content.ctaInterest : t(UI.interestTitle, lang)} selected={selected.includes(detail.id)} onToggle={() => toggle(detail.id)} onInterest={() => openInterestWith(detail.id)} onClose={() => setDetail(null)} />}
-        {interest && <InterestModal selected={selected} lang={lang} onClose={() => setInterest(false)} />}
+        {detail && <DetailModal item={detail} lang={lang} content={content.animations[detail.id]} price={priceOf(detail.id)} branding={fr ? content.branding : t(UI.branding, lang)} ctaLabel={fr ? content.ctaInterest : t(UI.interestTitle, lang)} selected={selected.includes(detail.id)} onToggle={() => toggle(detail.id)} onInterest={() => openInterestWith(detail.id)} onClose={() => setDetail(null)} />}
+        {interest && <InterestModal selected={selected} lang={lang} estimateTotal={estimateTotal} onClose={() => setInterest(false)} />}
+        {exitPrompt && !interest && (
+          <ExitIntentModal
+            lang={lang}
+            count={selected.length}
+            names={selected.map((id) => { const it = findEvent(id); return it ? localizedEvent(it, lang).name : null; }).filter(Boolean) as string[]}
+            ctaLabel={fr ? content.ctaInterest : t(UI.interestTitle, lang)}
+            onAccept={() => { setExitPrompt(false); openInterestWith(); }}
+            onClose={() => setExitPrompt(false)}
+          />
+        )}
       </AnimatePresence>
     </main>
   );
@@ -284,12 +383,15 @@ function StoryPlayer({ url, onClose }: { url: string; onClose: () => void }) {
 }
 
 /** Pop-up détaillée d'une animation : médias + description + branding + CTA. */
-function DetailModal({ item, lang, content, branding, gains, ctaLabel, selected, onToggle, onInterest, onClose }: { item: EventItem; lang: Lang; content?: AnimationContent; branding: string; gains: string[]; ctaLabel: string; selected: boolean; onToggle: () => void; onInterest: () => void; onClose: () => void }) {
-  const images = content?.images ?? [];
+function DetailModal({ item, lang, content, price, branding, ctaLabel, selected, onToggle, onInterest, onClose }: { item: EventItem; lang: Lang; content?: AnimationContent; price: number; branding: string; ctaLabel: string; selected: boolean; onToggle: () => void; onInterest: () => void; onClose: () => void }) {
+  const defImg = EVENT_IMAGE[item.id] ? encodeURI(EVENT_IMAGE[item.id]) : "";
+  const images = content?.images?.length ? content.images : (defImg ? [defImg] : []);
   const [idx, setIdx] = useState(0);
   const le = localizedEvent(item, lang);
   const long = lang === "fr" ? (content?.long?.trim() || le.desc) : le.desc;
   const usps = (lang === "fr" && content?.usps && content.usps.length ? content.usps : le.usps) ?? [];
+  const options = le.options ?? [];
+  const gains = eventGains(item.id, lang);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
@@ -297,7 +399,7 @@ function DetailModal({ item, lang, content, branding, gains, ctaLabel, selected,
         <button type="button" onClick={onClose} aria-label="Fermer" className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white/80 backdrop-blur hover:text-white"><X size={16} /></button>
 
         {/* Média : vidéo prioritaire, sinon carrousel d'images, sinon emoji */}
-        <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-gradient-to-br from-ink-muted to-ink text-7xl">
+        <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-br from-ink-muted to-ink text-7xl">
           {content?.video ? (
             <VideoPlayer url={content.video} />
           ) : images.length > 0 ? (
@@ -322,6 +424,7 @@ function DetailModal({ item, lang, content, branding, gains, ctaLabel, selected,
             <span className="text-2xl">{item.emoji}</span>
             <h2 className="text-2xl font-extrabold text-white" style={{ fontFamily: SERIF }}>{le.name}</h2>
           </div>
+          {price > 0 && <p className="mt-1.5 text-sm font-bold text-gold">{t(UI.priceFrom, lang)} {formatEUR(price)}</p>}
           {/* Badges USP */}
           {usps.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -332,6 +435,18 @@ function DetailModal({ item, lang, content, branding, gains, ctaLabel, selected,
           )}
 
           <p className="mt-4 text-sm leading-relaxed text-white/70">{long}</p>
+
+          {/* Options « au choix » (ex. Food Truck) */}
+          {options.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm font-bold text-white">{t(UI.optionsTitle, lang)} :</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {options.map((o, i) => (
+                  <span key={i} className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[12px] font-semibold text-white/80">{o}</span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Ce que votre magasin y gagne */}
           {gains.length > 0 && (
@@ -377,10 +492,41 @@ function VideoPlayer({ url }: { url: string }) {
 }
 
 /** Pop-in « Ça m'intéresse ». */
-function InterestModal({ selected, lang, onClose }: { selected: string[]; lang: Lang; onClose: () => void }) {
+/** Pop-up de relance (exit-intent) : « Gardez votre sélection, on vous rappelle ». */
+const EXIT_TXT = {
+  fr: { title: "Attendez ! Gardez votre sélection", sub: "Ne perdez pas votre composition. Laissez-nous vos coordonnées : on vous rappelle avec un devis sur-mesure — sans engagement.", stay: "Continuer à composer" },
+  nl: { title: "Wacht! Bewaar uw selectie", sub: "Verlies uw samenstelling niet. Laat uw gegevens achter: we bellen u terug met een offerte op maat — vrijblijvend.", stay: "Verder samenstellen" },
+  en: { title: "Wait! Keep your selection", sub: "Don't lose your setup. Leave your details and we'll call you back with a tailored quote — no commitment.", stay: "Keep composing" },
+} as const;
+
+function ExitIntentModal({ lang, count, names, ctaLabel, onAccept, onClose }: { lang: Lang; count: number; names: string[]; ctaLabel: string; onAccept: () => void; onClose: () => void }) {
+  const x = EXIT_TXT[lang] ?? EXIT_TXT.fr;
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <motion.div initial={{ y: 20, opacity: 0, scale: 0.96 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 20, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md rounded-3xl border border-gold/30 bg-ink p-6 text-center shadow-card">
+        <button type="button" onClick={onClose} aria-label="Fermer" className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 hover:text-white"><X size={16} /></button>
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gold/15 text-gold"><Sparkles size={26} /></div>
+        <h2 className="text-xl font-bold text-white" style={{ fontFamily: SERIF }}>{x.title}</h2>
+        <p className="mt-2 text-sm text-white/60">{x.sub}</p>
+        {count > 0 && (
+          <div className="mx-auto mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gold">{count} {count > 1 ? "animations" : "animation"}</p>
+            <p className="mt-1 truncate text-sm text-white/70">{names.join(" · ")}</p>
+          </div>
+        )}
+        <button type="button" onClick={onAccept} className="btn-primary mt-5 flex w-full items-center justify-center gap-2 px-5 py-3 text-sm">{ctaLabel} <ArrowRight size={16} /></button>
+        <button type="button" onClick={onClose} className="mt-3 text-xs font-medium text-white/40 hover:text-white/70">{x.stay}</button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function InterestModal({ selected, lang, estimateTotal, onClose }: { selected: string[]; lang: Lang; estimateTotal: number; onClose: () => void }) {
   const [form, setForm] = useState({ company: "", name: "", email: "", phone: "", message: "", eventDate: "", city: "", stores: "", budget: "" });
   const [state, setState] = useState<"idle" | "sending" | "done">("idle");
   const [err, setErr] = useState<string | null>(null);
+  const [hp, setHp] = useState(""); // honeypot anti-bot (invisible pour l'humain)
+  const openedAt = useRef(Date.now()); // horodatage d'ouverture (anti-bot : soumission trop rapide)
   const L = (k: string) => t(UI[k], lang);
 
   const emailOk = /.+@.+\..+/.test(form.email.trim());
@@ -394,11 +540,11 @@ function InterestModal({ selected, lang, onClose }: { selected: string[]; lang: 
       const res = await fetch("/api/interest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, events: selected.map((id) => findEvent(id)?.name).filter(Boolean), eventIds: selected }),
+        body: JSON.stringify({ ...form, lang, hp, elapsed: Date.now() - openedAt.current, events: selected.map((id) => findEvent(id)?.name).filter(Boolean), eventIds: selected }),
       });
       const data = await res.json();
       if (!res.ok || data.error) { setErr(data.error || "Une erreur est survenue."); setState("idle"); }
-      else setState("done");
+      else { firePixel("lead"); setState("done"); }
     } catch {
       setErr("Réseau indisponible, réessaie."); setState("idle");
     }
@@ -420,11 +566,17 @@ function InterestModal({ selected, lang, onClose }: { selected: string[]; lang: 
             <h2 className="text-xl font-extrabold text-white" style={{ fontFamily: SERIF }}>{L("interestTitle")}</h2>
             <p className="mt-1 text-sm text-white/55">{L("interestSub")}</p>
             {selected.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {selected.map((id) => { const it = findEvent(id); return it ? <span key={id} className="rounded-full bg-gold/12 px-2.5 py-1 text-[11px] font-semibold text-gold">{it.emoji} {localizedEvent(it, lang).name}</span> : null; })}
-              </div>
+              <>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {selected.map((id) => { const it = findEvent(id); return it ? <span key={id} className="rounded-full bg-gold/12 px-2.5 py-1 text-[11px] font-semibold text-gold">{it.emoji} {localizedEvent(it, lang).name}</span> : null; })}
+                </div>
+                <p className="mt-2 text-sm font-bold text-gold">{L("estimateLabel")} {formatEUR(estimateTotal)}</p>
+                <p className="text-[11px] text-white/40">{L("priceNote")}</p>
+              </>
             )}
             <div className="mt-4 space-y-3">
+              {/* Honeypot anti-bot : invisible et hors tabulation pour un humain. */}
+              <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={hp} onChange={(e) => setHp(e.target.value)} style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }} />
               <Field placeholder={L("fCompany")} value={form.company} onChange={(v) => setForm((f) => ({ ...f, company: v }))} />
               <Field placeholder={L("fName")} value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
               <Field placeholder={L("fEmail")} type="email" value={form.email} onChange={(v) => setForm((f) => ({ ...f, email: v }))} />
@@ -437,7 +589,10 @@ function InterestModal({ selected, lang, onClose }: { selected: string[]; lang: 
                   <label className="mb-1 block text-[11px] text-white/40">{L("fDate")}</label>
                   <input type="date" value={form.eventDate} onChange={(e) => setForm((f) => ({ ...f, eventDate: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-ink-soft px-3 py-2.5 text-sm text-white outline-none focus:border-gold/50" />
                 </div>
-                <Field placeholder={L("fCity")} value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} />
+                <div>
+                  <label className="mb-1 block text-[11px] text-white/40">{L("fCity")}</label>
+                  <Field placeholder={L("fCity")} value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Field placeholder={L("fStores")} value={form.stores} onChange={(v) => setForm((f) => ({ ...f, stores: v }))} />

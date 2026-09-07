@@ -55,14 +55,22 @@ export async function storeLead(lead: Lead): Promise<void> {
   });
 }
 
-/** Enregistre une visite (anonyme). */
-export async function logVisit(ctx: { path?: string; referrer?: string; src?: string }): Promise<void> {
+/** Types d'événements du tunnel de conversion (analytics). */
+export type FunnelKind = "visit" | "interest";
+
+/** Enregistre un événement anonyme du tunnel (visite ou ouverture du formulaire). */
+export async function logEvent(kind: FunnelKind, ctx: { path?: string; referrer?: string; src?: string }): Promise<void> {
   await createRecord<WFields>(TABLES.webhooks(), {
-    EventID: `visit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    EventType: "visit",
+    EventID: `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    EventType: kind,
     Processed: true,
     Payload: JSON.stringify({ path: ctx.path ?? "", referrer: ctx.referrer ?? "", src: ctx.src ?? "" }).slice(0, 1000),
   });
+}
+
+/** Enregistre une visite (anonyme). */
+export async function logVisit(ctx: { path?: string; referrer?: string; src?: string }): Promise<void> {
+  await logEvent("visit", ctx);
 }
 
 function inRange(ct: string, from?: number, to?: number): boolean {
@@ -127,9 +135,42 @@ export async function updateLead(recordId: string, patch: { status?: LeadStatus;
   await updateRecord<WFieldsFull>(TABLES.webhooks(), recordId, { Payload: JSON.stringify(payload).slice(0, 6000) });
 }
 
-/** Compte les visites sur une plage de dates. */
-export async function countVisits(opts?: { fromISO?: string; toISO?: string }): Promise<number> {
-  const recs = await listRecords<WFields>(TABLES.webhooks(), { filterByFormula: `{EventType} = "visit"`, maxRecords: 50000 });
+/** Un événement brut du tunnel (pour la vue Logs). */
+export interface EventRow {
+  id: string;
+  createdTime: string;
+  type: string; // "visit" | "interest"
+  path: string;
+  referrer: string;
+  src: string;
+}
+
+/** Liste les événements bruts (logs) avec leur provenance, les plus récents d'abord. */
+export async function listEvents(opts?: { fromISO?: string; toISO?: string; kinds?: FunnelKind[]; limit?: number }): Promise<EventRow[]> {
+  const kinds = opts?.kinds && opts.kinds.length ? opts.kinds : (["visit", "interest"] as FunnelKind[]);
+  const formula = kinds.length === 1 ? `{EventType} = "${kinds[0]}"` : `OR(${kinds.map((k) => `{EventType} = "${k}"`).join(",")})`;
+  const recs = await listRecords<WFields>(TABLES.webhooks(), { filterByFormula: formula, maxRecords: 50000 });
+  const from = opts?.fromISO ? Date.parse(opts.fromISO) : undefined;
+  const to = opts?.toISO ? Date.parse(opts.toISO) : undefined;
+  const out: EventRow[] = [];
+  for (const r of recs) {
+    const ct = r.createdTime ?? r.fields.ReceivedAt ?? "";
+    if (!inRange(ct, from, to)) continue;
+    let p: { path?: string; referrer?: string; src?: string } = {};
+    try {
+      p = JSON.parse(r.fields.Payload ?? "{}");
+    } catch {
+      /* payload illisible : on garde les champs vides */
+    }
+    out.push({ id: r.id, createdTime: ct, type: r.fields.EventType ?? "", path: p.path ?? "", referrer: p.referrer ?? "", src: p.src ?? "" });
+  }
+  out.sort((a, b) => Date.parse(b.createdTime) - Date.parse(a.createdTime));
+  return opts?.limit ? out.slice(0, opts.limit) : out;
+}
+
+/** Compte les événements d'un type donné sur une plage de dates. */
+export async function countEvents(kind: FunnelKind, opts?: { fromISO?: string; toISO?: string }): Promise<number> {
+  const recs = await listRecords<WFields>(TABLES.webhooks(), { filterByFormula: `{EventType} = "${kind}"`, maxRecords: 50000 });
   const from = opts?.fromISO ? Date.parse(opts.fromISO) : undefined;
   const to = opts?.toISO ? Date.parse(opts.toISO) : undefined;
   let n = 0;
@@ -138,4 +179,9 @@ export async function countVisits(opts?: { fromISO?: string; toISO?: string }): 
     if (inRange(ct, from, to)) n += 1;
   }
   return n;
+}
+
+/** Compte les visites sur une plage de dates. */
+export async function countVisits(opts?: { fromISO?: string; toISO?: string }): Promise<number> {
+  return countEvents("visit", opts);
 }
