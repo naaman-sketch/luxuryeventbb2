@@ -526,6 +526,7 @@ function InterestModal({ selected, lang, estimateTotal, onClose }: { selected: s
   const [state, setState] = useState<"idle" | "sending" | "done">("idle");
   const [err, setErr] = useState<string | null>(null);
   const [hp, setHp] = useState(""); // honeypot anti-bot (invisible pour l'humain)
+  const [showQualif, setShowQualif] = useState(false); // section qualification repliée par défaut
   const openedAt = useRef(Date.now()); // horodatage d'ouverture (anti-bot : soumission trop rapide)
   const L = (k: string) => t(UI[k], lang);
 
@@ -582,25 +583,32 @@ function InterestModal({ selected, lang, estimateTotal, onClose }: { selected: s
               <Field placeholder={L("fEmail")} type="email" value={form.email} onChange={(v) => setForm((f) => ({ ...f, email: v }))} />
               <Field placeholder={L("fPhone")} value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
 
-              {/* Qualification — pour un devis plus rapide */}
-              <p className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-white/35">{L("qualifTitle")}</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-[11px] text-white/40">{L("fDate")}</label>
-                  <input type="date" value={form.eventDate} onChange={(e) => setForm((f) => ({ ...f, eventDate: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-ink-soft px-3 py-2.5 text-sm text-white outline-none focus:border-gold/50" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[11px] text-white/40">{L("fCity")}</label>
-                  <Field placeholder={L("fCity")} value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field placeholder={L("fStores")} value={form.stores} onChange={(v) => setForm((f) => ({ ...f, stores: v }))} />
-                <select value={form.budget} onChange={(e) => setForm((f) => ({ ...f, budget: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-ink-soft px-3 py-3 text-sm text-white outline-none focus:border-gold/50">
-                  <option value="">{L("fBudget")}</option>
-                  {BUDGETS.map((b) => <option key={b} value={b} className="bg-ink">{b}</option>)}
-                </select>
-              </div>
+              {/* Qualification — repliée par défaut pour laisser le CTA visible */}
+              <button type="button" onClick={() => setShowQualif((v) => !v)} className="flex w-full items-center justify-between pt-1 text-[11px] font-semibold uppercase tracking-wide text-white/40 hover:text-white/70">
+                <span>{L("qualifTitle")}</span>
+                <ChevronRight size={14} className={`transition-transform ${showQualif ? "rotate-90" : ""}`} />
+              </button>
+              {showQualif && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[11px] text-white/40">{L("fDate")}</label>
+                      <input type="date" value={form.eventDate} onChange={(e) => setForm((f) => ({ ...f, eventDate: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-ink-soft px-3 py-2.5 text-sm text-white outline-none focus:border-gold/50" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] text-white/40">{L("fCity")}</label>
+                      <Field placeholder={L("fCity")} value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field placeholder={L("fStores")} value={form.stores} onChange={(v) => setForm((f) => ({ ...f, stores: v }))} />
+                    <select value={form.budget} onChange={(e) => setForm((f) => ({ ...f, budget: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-ink-soft px-3 py-3 text-sm text-white outline-none focus:border-gold/50">
+                      <option value="">{L("fBudget")}</option>
+                      {BUDGETS.map((b) => <option key={b} value={b} className="bg-ink">{b}</option>)}
+                    </select>
+                  </div>
+                </>
+              )}
 
               <textarea value={form.message} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))} placeholder={L("fMessage")} className="min-h-[70px] w-full resize-y rounded-xl border border-white/10 bg-ink-soft px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-gold/50" />
               {err && <p className="text-sm text-red-400">{err}</p>}
