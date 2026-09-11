@@ -11,6 +11,20 @@ import { localizedEvent, eventGains } from "@/lib/events-i18n";
 const SERIF = "var(--font-serif), Georgia, serif";
 const BUDGETS = ["À définir", "Moins de 1 000 €", "1 000 – 3 000 €", "3 000 – 5 000 €", "5 000 – 10 000 €", "Plus de 10 000 €"];
 
+// Indicatifs téléphoniques (Belgique en premier, puis pays voisins).
+const PHONE_COUNTRIES = [
+  { code: "BE", flag: "🇧🇪", dial: "+32" },
+  { code: "FR", flag: "🇫🇷", dial: "+33" },
+  { code: "LU", flag: "🇱🇺", dial: "+352" },
+  { code: "NL", flag: "🇳🇱", dial: "+31" },
+  { code: "DE", flag: "🇩🇪", dial: "+49" },
+  { code: "CH", flag: "🇨🇭", dial: "+41" },
+  { code: "GB", flag: "🇬🇧", dial: "+44" },
+  { code: "ES", flag: "🇪🇸", dial: "+34" },
+  { code: "IT", flag: "🇮🇹", dial: "+39" },
+  { code: "PT", flag: "🇵🇹", dial: "+351" },
+];
+
 /** Envoie un événement de conversion aux pixels publicitaires (s'ils sont chargés). */
 function firePixel(stage: "interest" | "lead") {
   if (typeof window === "undefined") return;
@@ -581,7 +595,7 @@ function InterestModal({ selected, lang, estimateTotal, onClose }: { selected: s
               <Field placeholder={L("fCompany")} value={form.company} onChange={(v) => setForm((f) => ({ ...f, company: v }))} />
               <Field placeholder={L("fName")} value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
               <Field placeholder={L("fEmail")} type="email" value={form.email} onChange={(v) => setForm((f) => ({ ...f, email: v }))} />
-              <Field placeholder={L("fPhone")} value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
+              <PhoneField placeholder={L("fPhone")} value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
 
               {/* Qualification — repliée par défaut pour laisser le CTA visible */}
               <button type="button" onClick={() => setShowQualif((v) => !v)} className="flex w-full items-center justify-between pt-1 text-[11px] font-semibold uppercase tracking-wide text-white/40 hover:text-white/70">
@@ -626,6 +640,41 @@ function InterestModal({ selected, lang, estimateTotal, onClose }: { selected: s
 
 function Field({ placeholder, value, onChange, type = "text" }: { placeholder: string; value: string; onChange: (v: string) => void; type?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="w-full rounded-xl border border-white/10 bg-ink-soft px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-gold/50" />;
+}
+
+/** Champ téléphone avec sélecteur d'indicatif pays (drapeau + +XX). Émet « +32 470… ». */
+function PhoneField({ placeholder, onChange }: { placeholder: string; value?: string; onChange: (v: string) => void }) {
+  const [dial, setDial] = useState("+32");
+  const [num, setNum] = useState("");
+  const [open, setOpen] = useState(false);
+  const country = PHONE_COUNTRIES.find((c) => c.dial === dial) ?? PHONE_COUNTRIES[0];
+  const emit = (d: string, n: string) => {
+    const clean = n.replace(/[^\d\s]/g, "").trim();
+    onChange(clean ? `${d} ${clean}` : "");
+  };
+  return (
+    <div className="relative flex gap-2">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Indicatif pays" className="flex shrink-0 items-center gap-1 rounded-xl border border-white/10 bg-ink-soft px-3 text-sm font-semibold text-white outline-none hover:border-gold/40 focus:border-gold/50">
+        <span className="text-base leading-none">{country.flag}</span> {country.dial}
+        <ChevronRight size={12} className={`text-white/50 transition-transform ${open ? "rotate-90" : ""}`} />
+      </button>
+      <input type="tel" inputMode="tel" value={num} onChange={(e) => { setNum(e.target.value); emit(dial, e.target.value); }} placeholder={placeholder} className="w-full rounded-xl border border-white/10 bg-ink-soft px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-gold/50" />
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-20 mt-1 max-h-56 w-48 overflow-y-auto rounded-xl border border-white/10 bg-ink-soft shadow-card">
+            {PHONE_COUNTRIES.map((c) => (
+              <button key={c.code} type="button" onClick={() => { setDial(c.dial); emit(c.dial, num); setOpen(false); }} className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-white/10 ${c.dial === dial ? "text-gold" : "text-white/80"}`}>
+                <span className="text-base leading-none">{c.flag}</span>
+                <span className="flex-1">{c.code}</span>
+                <span className="text-white/50">{c.dial}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 /** Ligne de FAQ (accordéon). */

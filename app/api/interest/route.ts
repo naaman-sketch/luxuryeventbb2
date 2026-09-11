@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSetting, INTEREST_WEBHOOK_KEY } from "@/lib/settings";
+import { getSetting, INTEREST_WEBHOOK_KEY, NOTIFY_EMAIL_KEY } from "@/lib/settings";
 import { storeLead } from "@/lib/leads";
 
 /**
@@ -122,8 +122,10 @@ export async function POST(req: Request) {
   // 2. E-mails via Resend (optionnel) : interne (équipe) + confirmation prospect.
   const RESEND = process.env.RESEND_API_KEY;
   if (RESEND) {
-    const from = process.env.INTEREST_FROM_EMAIL ?? "contact@luxuryevent.example";
-    const to = process.env.INTEREST_TO_EMAIL ?? from;
+    const from = process.env.INTEREST_FROM_EMAIL ?? "contact@cadeauentreprise.be";
+    // Destinataire des notifications : réglage dashboard > variable d'env > défaut.
+    const notifySetting = await getSetting(NOTIFY_EMAIL_KEY).catch(() => null);
+    const to = (notifySetting && notifySetting.trim()) || process.env.INTEREST_TO_EMAIL || "contact@cadeauentreprise.be";
     const qualif = [
       lead.eventDate ? `<b>Date souhaitée :</b> ${esc(lead.eventDate)}` : "",
       lead.city ? `<b>Ville :</b> ${esc(lead.city)}` : "",

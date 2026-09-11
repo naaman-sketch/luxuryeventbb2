@@ -14,8 +14,10 @@ interface SettingFields {
 
 /** Clé du JSON de contenu éditable (textes, images, vidéos des animations). */
 export const CONTENT_KEY = "content";
-/** Webhook déclenché à chaque intérêt B2B. */
+/** Webhook déclenché à chaque intérêt B2B (ex. automatisation WhatsApp). */
 export const INTEREST_WEBHOOK_KEY = "interest_webhook";
+/** Adresse e-mail qui reçoit les notifications de nouvelles demandes. */
+export const NOTIFY_EMAIL_KEY = "notify_email";
 
 const TTL = 45_000;
 let cache: { at: number; map: Record<string, string> } | null = null;

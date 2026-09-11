@@ -29,6 +29,7 @@ export default function Admin() {
   const [authed, setAuthed] = useState(false);
   const [content, setContent] = useState<SiteContent>(defaultContent());
   const [webhook, setWebhook] = useState("");
+  const [notifyEmail, setNotifyEmail] = useState("");
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<"content" | "leads" | "logs">("content");
@@ -48,7 +49,7 @@ export default function Admin() {
       setAuthed(true);
       const data = await res.json().catch(() => ({}));
       if (data.error) setMsg("⚠️ Airtable indisponible — l'interface s'affiche mais les données ne se chargent pas.");
-      else { if (data.content) setContent(data.content); setWebhook(data.interestWebhook || ""); }
+      else { if (data.content) setContent(data.content); setWebhook(data.interestWebhook || ""); setNotifyEmail(data.notifyEmail || ""); }
     } catch { setMsg("Erreur réseau."); }
   }, [headers]);
 
@@ -60,7 +61,7 @@ export default function Admin() {
   const save = async () => {
     setSaving(true); setMsg("");
     try {
-      const res = await fetch("/api/admin/content", { method: "POST", headers, body: JSON.stringify({ content, interestWebhook: webhook }) });
+      const res = await fetch("/api/admin/content", { method: "POST", headers, body: JSON.stringify({ content, interestWebhook: webhook, notifyEmail }) });
       const data = await res.json();
       setMsg(!res.ok || data.error ? `✗ ${data.error || "Erreur"}` : "✓ Enregistré");
     } catch { setMsg("✗ Erreur réseau"); }
@@ -186,8 +187,12 @@ export default function Admin() {
       </div>
 
       <div style={S.card}>
-        <h2 style={S.h2}>🔗 Webhook « Ça m&apos;intéresse »</h2>
-        <p style={{ ...S.muted, marginBottom: 6 }}>URL déclenchée à chaque lead (pour discuter avec la marque).</p>
+        <h2 style={S.h2}>📩 Notifications de demandes</h2>
+        <label style={S.label}>E-mail qui reçoit les nouvelles demandes</label>
+        <p style={{ ...S.muted, marginBottom: 6, fontSize: 12 }}>Chaque demande envoie un e-mail de confirmation au prospect + une notification à cette adresse. (Nécessite RESEND_API_KEY.)</p>
+        <input style={S.input} type="email" placeholder="contact@cadeauentreprise.be" value={notifyEmail} onChange={(e) => setNotifyEmail(e.target.value)} />
+        <label style={S.label}>Webhook (WhatsApp / Make / Zapier…)</label>
+        <p style={{ ...S.muted, marginBottom: 6, fontSize: 12 }}>URL POST déclenchée à chaque demande (payload JSON complet du lead). Branche-la sur une automatisation pour envoyer un message WhatsApp automatique.</p>
         <input style={S.input} placeholder="https://hook…" value={webhook} onChange={(e) => setWebhook(e.target.value)} />
       </div>
 
