@@ -13,16 +13,16 @@ const BUDGETS = ["À définir", "Moins de 1 000 €", "1 000 – 3 000 €", "3 
 
 // Indicatifs téléphoniques (Belgique en premier, puis pays voisins).
 const PHONE_COUNTRIES = [
-  { code: "BE", flag: "🇧🇪", dial: "+32" },
-  { code: "FR", flag: "🇫🇷", dial: "+33" },
-  { code: "LU", flag: "🇱🇺", dial: "+352" },
-  { code: "NL", flag: "🇳🇱", dial: "+31" },
-  { code: "DE", flag: "🇩🇪", dial: "+49" },
-  { code: "CH", flag: "🇨🇭", dial: "+41" },
-  { code: "GB", flag: "🇬🇧", dial: "+44" },
-  { code: "ES", flag: "🇪🇸", dial: "+34" },
-  { code: "IT", flag: "🇮🇹", dial: "+39" },
-  { code: "PT", flag: "🇵🇹", dial: "+351" },
+  { code: "BE", dial: "+32" },
+  { code: "FR", dial: "+33" },
+  { code: "LU", dial: "+352" },
+  { code: "NL", dial: "+31" },
+  { code: "DE", dial: "+49" },
+  { code: "CH", dial: "+41" },
+  { code: "GB", dial: "+44" },
+  { code: "ES", dial: "+34" },
+  { code: "IT", dial: "+39" },
+  { code: "PT", dial: "+351" },
 ];
 
 /** Envoie un événement de conversion aux pixels publicitaires (s'ils sont chargés). */
@@ -642,6 +642,28 @@ function Field({ placeholder, value, onChange, type = "text" }: { placeholder: s
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="w-full rounded-xl border border-white/10 bg-ink-soft px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-gold/50" />;
 }
 
+/** Drapeau SVG (rendu identique sur tous les OS, contrairement aux emoji sur Windows). */
+function FlagIcon({ code }: { code: string }) {
+  const FLAGS: Record<string, { vb: string; el: React.ReactNode }> = {
+    BE: { vb: "0 0 3 2", el: <><rect width="1" height="2" fill="#000" /><rect x="1" width="1" height="2" fill="#FDDA24" /><rect x="2" width="1" height="2" fill="#EF3340" /></> },
+    FR: { vb: "0 0 3 2", el: <><rect width="1" height="2" fill="#002395" /><rect x="1" width="1" height="2" fill="#fff" /><rect x="2" width="1" height="2" fill="#ED2939" /></> },
+    IT: { vb: "0 0 3 2", el: <><rect width="1" height="2" fill="#008C45" /><rect x="1" width="1" height="2" fill="#fff" /><rect x="2" width="1" height="2" fill="#CD212A" /></> },
+    LU: { vb: "0 0 2 3", el: <><rect width="2" height="1" fill="#ED2939" /><rect y="1" width="2" height="1" fill="#fff" /><rect y="2" width="2" height="1" fill="#00A1DE" /></> },
+    NL: { vb: "0 0 2 3", el: <><rect width="2" height="1" fill="#AE1C28" /><rect y="1" width="2" height="1" fill="#fff" /><rect y="2" width="2" height="1" fill="#21468B" /></> },
+    DE: { vb: "0 0 2 3", el: <><rect width="2" height="1" fill="#000" /><rect y="1" width="2" height="1" fill="#DD0000" /><rect y="2" width="2" height="1" fill="#FFCE00" /></> },
+    CH: { vb: "0 0 32 32", el: <><rect width="32" height="32" fill="#D52B1E" /><rect x="13" y="6" width="6" height="20" fill="#fff" /><rect x="6" y="13" width="20" height="6" fill="#fff" /></> },
+    ES: { vb: "0 0 3 2", el: <><rect width="3" height="2" fill="#AA151B" /><rect y="0.5" width="3" height="1" fill="#F1BF00" /></> },
+    PT: { vb: "0 0 5 3", el: <><rect width="5" height="3" fill="#DA291C" /><rect width="2" height="3" fill="#046A38" /><circle cx="2" cy="1.5" r="0.5" fill="#FFE000" /></> },
+    GB: { vb: "0 0 60 30", el: <><rect width="60" height="30" fill="#012169" /><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" strokeWidth="6" /><path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" strokeWidth="2" /><rect x="25" width="10" height="30" fill="#fff" /><rect y="10" width="60" height="10" fill="#fff" /><rect x="27" width="6" height="30" fill="#C8102E" /><rect y="12" width="60" height="6" fill="#C8102E" /></> },
+  };
+  const f = FLAGS[code] ?? FLAGS.BE;
+  return (
+    <span className="inline-block h-3.5 w-5 shrink-0 overflow-hidden rounded-[3px] ring-1 ring-white/20">
+      <svg viewBox={f.vb} preserveAspectRatio="none" className="block h-full w-full">{f.el}</svg>
+    </span>
+  );
+}
+
 /** Champ téléphone avec sélecteur d'indicatif pays (drapeau + +XX). Émet « +32 470… ». */
 function PhoneField({ placeholder, onChange }: { placeholder: string; value?: string; onChange: (v: string) => void }) {
   const [dial, setDial] = useState("+32");
@@ -654,8 +676,8 @@ function PhoneField({ placeholder, onChange }: { placeholder: string; value?: st
   };
   return (
     <div className="relative flex gap-2">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Indicatif pays" className="flex shrink-0 items-center gap-1 rounded-xl border border-white/10 bg-ink-soft px-3 text-sm font-semibold text-white outline-none hover:border-gold/40 focus:border-gold/50">
-        <span className="text-base leading-none">{country.flag}</span> {country.dial}
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Indicatif pays" className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-ink-soft px-3 text-sm font-semibold text-white outline-none hover:border-gold/40 focus:border-gold/50">
+        <FlagIcon code={country.code} /> {country.dial}
         <ChevronRight size={12} className={`text-white/50 transition-transform ${open ? "rotate-90" : ""}`} />
       </button>
       <input type="tel" inputMode="tel" value={num} onChange={(e) => { setNum(e.target.value); emit(dial, e.target.value); }} placeholder={placeholder} className="w-full rounded-xl border border-white/10 bg-ink-soft px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-gold/50" />
@@ -665,7 +687,7 @@ function PhoneField({ placeholder, onChange }: { placeholder: string; value?: st
           <div className="absolute left-0 top-full z-20 mt-1 max-h-56 w-48 overflow-y-auto rounded-xl border border-white/10 bg-ink-soft shadow-card">
             {PHONE_COUNTRIES.map((c) => (
               <button key={c.code} type="button" onClick={() => { setDial(c.dial); emit(c.dial, num); setOpen(false); }} className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-white/10 ${c.dial === dial ? "text-gold" : "text-white/80"}`}>
-                <span className="text-base leading-none">{c.flag}</span>
+                <FlagIcon code={c.code} />
                 <span className="flex-1">{c.code}</span>
                 <span className="text-white/50">{c.dial}</span>
               </button>
