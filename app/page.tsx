@@ -419,7 +419,7 @@ function DetailModal({ item, lang, content, price, branding, ctaLabel, selected,
           ) : images.length > 0 ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={images[idx]} alt={item.name} className="h-full w-full object-cover" />
+              <img src={images[idx]} alt={item.name} className="h-full w-full object-contain" />
               {images.length > 1 && (
                 <>
                   <button type="button" onClick={() => setIdx((i) => (i - 1 + images.length) % images.length)} className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white"><ChevronLeft size={18} /></button>
