@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "luxuryb2b", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--", "-p", "3013"], "port": 3013 }
+  ]
+}
