@@ -57,7 +57,7 @@ export function estimateFrom(ids: string[]): number {
 /** Image par défaut d'une animation (dossier /public/Stand). Encodée au rendu. */
 export const EVENT_IMAGE: Record<string, string> = {
   "jeu-concours": "/Stand/Stand Quizz.png",
-  "boule-balle": "/Stand/Stand Bubble House piscine à balle.png",
+  "boule-balle": "/Stand/Bubble House.webp",
   "roue-xxl": "/Stand/Stand Rue de la fortune.png",
   "cash-machine": "/Stand/Stand Cash Box Inflate.png",
   "grappin": "/Stand/Stand Machine à grappin.png",
