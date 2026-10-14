@@ -258,7 +258,7 @@ function LeadsView({ headers }: { headers: Record<string, string> }) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<{ leads: LeadRow[]; leadCount: number; visitCount: number; interestCount: number; rate: number; interestRate: number; formRate: number } | null>(null);
+  const [data, setData] = useState<{ leads: LeadRow[]; leadCount: number; visitCount: number; interestCount: number; rate: number; interestRate: number; formRate: number; series?: DayPoint[] } | null>(null);
   const [err, setErr] = useState("");
 
   const load = async () => {
@@ -334,6 +334,28 @@ function LeadsView({ headers }: { headers: Record<string, string> }) {
           <Stat label="Intérêt → envoi" value={`${data?.formRate ?? 0}%`} small />
           <Stat label="Conversion globale" value={`${data?.rate ?? 0}%`} small />
         </div>
+      </div>
+
+      <div style={S.card}>
+        <h2 style={S.h2}>📈 Évolution dans le temps</h2>
+        <LineChart series={data?.series ?? []} seriesKeys={[
+          { key: "visits", label: "Visiteurs", color: "#8b93a7" },
+          { key: "interest", label: "Intéressés", color: "#7aa2ff" },
+          { key: "leads", label: "Leads", color: "#e8b84b" },
+        ]} />
+      </div>
+
+      <div style={S.card}>
+        <h2 style={S.h2}>🎯 Taux de conversion par jour (%)</h2>
+        <p style={{ ...S.muted, fontSize: 12, marginBottom: 8 }}>Part des visiteurs qui ouvrent le formulaire, et part qui deviennent lead.</p>
+        <LineChart series={(data?.series ?? []).map((d) => ({
+          date: d.date,
+          intRate: d.visits ? Math.round((d.interest / d.visits) * 1000) / 10 : 0,
+          leadRate: d.visits ? Math.round((d.leads / d.visits) * 1000) / 10 : 0,
+        }))} unit="%" seriesKeys={[
+          { key: "intRate", label: "Visite → intérêt", color: "#7aa2ff" },
+          { key: "leadRate", label: "Visite → lead", color: "#e8b84b" },
+        ]} />
       </div>
 
       <div style={S.card}>
@@ -545,6 +567,58 @@ function FunnelBar({ visits, interest, leads }: { visits: number; interest: numb
           <span style={{ width: 46, textAlign: "right", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{val}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+type DayPoint = { date: string; visits: number; interest: number; leads: number };
+
+/** Graphique courbes (SVG, sans dépendance) : une ligne par série, axes + légende + tooltips. */
+function LineChart<T extends { date: string }>({ series, seriesKeys, unit }: { series: T[]; seriesKeys: { key: keyof T; label: string; color: string }[]; unit?: string }) {
+  if (!series || series.length === 0) return <p style={{ ...S.muted }}>Aucune donnée sur la période.</p>;
+  const W = 760, H = 240, padL = 38, padR = 12, padT = 12, padB = 26;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const n = series.length;
+  const rawMax = Math.max(1, ...series.flatMap((d) => seriesKeys.map((s) => Number(d[s.key]) || 0)));
+  const niceMax = (m: number) => { const p = Math.pow(10, Math.floor(Math.log10(m))); const r = m / p; const f = r <= 1 ? 1 : r <= 2 ? 2 : r <= 5 ? 5 : 10; return f * p; };
+  const max = niceMax(rawMax);
+  const x = (i: number) => padL + (n === 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const y = (v: number) => padT + plotH - (v / max) * plotH;
+  const fmt = (iso: string) => { const d = new Date(iso); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`; };
+  const grid = [0, max / 4, max / 2, (3 * max) / 4, max];
+  const tickEvery = Math.max(1, Math.ceil(n / 6));
+  const total = (k: keyof T) => series.reduce((s, d) => s + (Number(d[k]) || 0), 0);
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 8 }}>
+        {seriesKeys.map((s) => (
+          <span key={String(s.key)} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#cfcfd6" }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: s.color, display: "inline-block" }} /> {s.label}
+            {!unit && <span style={{ color: "#9a9aa2" }}>· {total(s.key)}</span>}
+          </span>
+        ))}
+      </div>
+      <div style={{ width: "100%", overflowX: "auto" }}>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", minWidth: 460, display: "block" }} preserveAspectRatio="xMidYMid meet">
+          {grid.map((gv, i) => (
+            <g key={i}>
+              <line x1={padL} y1={y(gv)} x2={W - padR} y2={y(gv)} stroke="#24242a" strokeWidth={1} />
+              <text x={padL - 6} y={y(gv) + 3} textAnchor="end" fontSize={9} fill="#9a9aa2">{unit === "%" ? `${Math.round(gv)}%` : Math.round(gv)}</text>
+            </g>
+          ))}
+          {series.map((d, i) => (i % tickEvery === 0 || i === n - 1) ? (
+            <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize={9} fill="#9a9aa2">{fmt(d.date)}</text>
+          ) : null)}
+          {seriesKeys.map((s) => (
+            <polyline key={String(s.key)} points={series.map((d, i) => `${x(i)},${y(Number(d[s.key]) || 0)}`).join(" ")} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          ))}
+          {seriesKeys.map((s) => series.map((d, i) => (
+            <circle key={`${String(s.key)}-${i}`} cx={x(i)} cy={y(Number(d[s.key]) || 0)} r={2.2} fill={s.color}>
+              <title>{fmt(d.date)} · {s.label}: {Number(d[s.key]) || 0}{unit === "%" ? "%" : ""}</title>
+            </circle>
+          )))}
+        </svg>
+      </div>
     </div>
   );
 }
